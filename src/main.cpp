@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <vector>
+#include <functional>
 
 using namespace std;
 typedef std::unordered_map<std::string, bool> STRING_BOOL_MAP;
@@ -165,8 +166,6 @@ int process_inputs(const STRING_VEC &I1s, const STRING_VEC &R1s, const  STRING_V
    }
 
   delete [] workers;
-
-
 }
 
 void process_file(String filename1, String filename2, String filename3, const STRING_BOOL_MAP * whitelist) {
@@ -194,10 +193,10 @@ void process_file(String filename1, String filename2, String filename3, const ST
 
    SamFile samOut;
    SamFileHeader samHeader;
-
    std::thread::id  thread_id = std::this_thread::get_id();
      
-   std::vector<SamRecord *> records;
+   int block_size = 1000;
+   SamRecord * samRecord  = new SamRecord[block_size];
 
    string outputfile;
    char buf[200];
@@ -211,21 +210,11 @@ void process_file(String filename1, String filename2, String filename3, const ST
    samOut.WriteHeader(samHeader);
 
    // Keep reading the file until there are no more fastq sequences to process.
-   SamRecord samRecord;
    int i = 0;
    int n_barcode_errors = 0;
+   int r =0;
    while (fastQFile1.keepReadingFile())
    {
-     // samRecord = new SamRecord;
-      // Read one sequence. This call will read all the lines for 
-      // one sequence.
-      /////////////////////////////////////////////////////////////////
-      // NOTE: It is up to you if you want to process only for success:
-      //    if(readFastQSequence() == FASTQ_SUCCESS)
-      // or for FASTQ_SUCCESS and FASTQ_INVALID: 
-      //    if(readFastQSequence() != FASTQ_FAILURE)
-      // Do NOT try to process on a FASTQ_FAILURE
-      /////////////////////////////////////////////////////////////////
       if(fastQFile1.readFastQSequence() == FastQStatus::FASTQ_SUCCESS && 
          fastQFile2.readFastQSequence() == FastQStatus::FASTQ_SUCCESS && 
          fastQFile3.readFastQSequence() == FastQStatus::FASTQ_SUCCESS 
@@ -243,25 +232,31 @@ void process_file(String filename1, String filename2, String filename3, const ST
 
          if( whitelist->find(barcode) != whitelist->end() ) {
           //   printf("ERROR: %d %s\n", i,  barcode.c_str());
-            samRecord.resetRecord();
-            samRecord.setReadName(fastQFile3.mySequenceIdentifier.c_str());
-            samRecord.setSequence(fastQFile3.myRawSequence.c_str());
-            samRecord.setQuality(fastQFile3.myQualityString.c_str());
+            //printf("record %d\n", r);
+            samRecord[r].resetRecord();
+            samRecord[r].setReadName(fastQFile3.mySequenceIdentifier.c_str());
+            samRecord[r].setSequence(fastQFile3.myRawSequence.c_str());
+            samRecord[r].setQuality(fastQFile3.myQualityString.c_str());
 
-            samRecord.addTag("CR", 'Z', barcode.c_str());
-            samRecord.addTag("CY", 'Z', barcodeQString.c_str());
+            samRecord[r].addTag("CR", 'Z', barcode.c_str());
+            samRecord[r].addTag("CY", 'Z', barcodeQString.c_str());
 
-            samRecord.addTag("UB", 'Z', UMI.c_str());
-            samRecord.addTag("UY", 'Z', UMIQString.c_str());
+            samRecord[r].addTag("UB", 'Z', UMI.c_str());
+            samRecord[r].addTag("UY", 'Z', UMIQString.c_str());
 
             std::string indexseq = std::string(fastQFile1.myRawSequence.c_str());
             std::string indexSeqQual = std::string(fastQFile1.myQualityString.c_str());
-            samRecord.addTag("SR", 'Z', indexseq.c_str());
-            samRecord.addTag("SY", 'Z', indexSeqQual.c_str());
+            samRecord[r].addTag("SR", 'Z', indexseq.c_str());
+            samRecord[r].addTag("SY", 'Z', indexSeqQual.c_str());
+            samRecord[r].setFlag(4);
 
-         //   records.push_back(samRecord);
-            samRecord.setFlag(4);
-            samOut.WriteRecord(samHeader, samRecord);
+            r = r + 1;
+           if(r == block_size)  {
+             for(int j=0; j < block_size; j++) 
+               samOut.WriteRecord(samHeader, samRecord[j]);
+             r = 0;
+           }
+
          }
          else {
              n_barcode_errors += 1;
@@ -274,9 +269,9 @@ void process_file(String filename1, String filename2, String filename3, const ST
              printf("%s\n", fastQFile1.mySequenceIdLine.c_str());
              printf("%s\n", fastQFile2.mySequenceIdLine.c_str());
              printf("%s\n", fastQFile3.mySequenceIdLine.c_str());
- //            printf("%s\n", fastQFile1.myRawSequence.c_str());
+             printf("%d\n", std::hash<std::string>{}(barcode));
          }
-         if( i== 10000000 ) break;
+         if( i== 5000000 ) break;
       }
    }
    // Finished processing all of the sequences in the file.
