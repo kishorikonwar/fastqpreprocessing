@@ -62,8 +62,140 @@ WHITE_LIST_DATA *read_white_list(const string &white_list_file) {
       newfile.close(); //close the file object.
    }
 
-   std::cout << "size of whitelist " << white_list_data->mutations.size() << std::endl;
+   std::cout << "Size of whitelist " << white_list_data->mutations.size() << std::endl;
    return white_list_data;
 } 
 
+void read_options(int argc, char **argv, INPUT_OPTIONS &options) {
+  int c;
+  int i;
 
+  int verbose_flag;
+  options.barcode_length = 16;
+  options.umi_length = 10;
+  options.bam_size = 1.0;
+  while (true) {
+      static struct option long_options[] =
+        {
+          /* These options set a flag. */
+          {"verbose", no_argument,  &verbose_flag, 1},
+          /* These options don’t set a flag.
+             We distinguish them by their indices. */
+          {"barcode-length",    required_argument, 0, 'b'},
+          {"umi-length",    required_argument, 0, 'u'},
+          {"bam-size",    required_argument, 0, 'B'},
+          {"I1",  required_argument,  0, 'I'},
+          {"R1",  required_argument,  0, 'R'},
+          {"R2",    required_argument, 0, 'r'},
+          {"white-list",    required_argument, 0, 'w'},
+          {0, 0, 0, 0}
+        };
+
+      const char *help_messages[] = {
+           "verbose messages", 
+           "barcode length", 
+           "UMI length",
+           "output BAM file in GB", 
+           "I1", 
+           "R1",
+           "R2", 
+           "white of correct barcodes", 
+      };
+
+
+      /* getopt_long stores the option index here. */
+      int option_index = 0;
+
+      c = getopt_long (argc, argv, "b:u:B:I:R:r:w:", long_options, &option_index);
+
+      /* Detect the end of the options. */
+      if (c == -1)
+        break;
+
+      switch (c)
+        {
+        case 0:
+          /* If this option set a flag, do nothing else now. */
+            if (long_options[option_index].flag != 0)
+                break;
+            printf ("option %s", long_options[option_index].name);
+            if (optarg)
+                printf (" with arg %s", optarg);
+            printf ("\n");
+            break;
+        case 'b':
+            options.barcode_length = atoi(optarg); 
+            break;
+        case 'u':
+            options.umi_length = atoi(optarg); 
+            break;
+        case 'B':
+            options.bam_size = atof(optarg); 
+            break;
+        case 'I':
+            options.I1s.push_back(string(optarg)); 
+            break;
+        case 'R':
+            options.R1s.push_back(string(optarg)); 
+            break;
+        case 'r':
+            options.R2s.push_back(string(optarg)); 
+            break;
+        case 'w':
+            options.white_list_file = string(optarg); 
+            break;
+
+        case '?':
+        case 'h':
+          i = 0;
+          printf("Usage: %s [options] \n", argv[0]);
+          while(long_options[i].name != 0) {
+             printf("\t--%-20s  %-25s  %-35s\n", long_options[i].name, \
+                     long_options[i].has_arg==no_argument? "no argument" : "required_argument", \
+                     help_messages[i]
+                   );
+             i = i + 1;
+          }
+          /* getopt_long already printed an error message. */
+          return;
+          break;
+        default:
+          abort ();
+        }
+    }
+
+  if( options.R1s.size() != options.R2s.size() || options.R1s.size() ==0  )  {
+     printf("R1 and R2 files mismatch i input\n");
+     exit(0);
+  }
+
+  if( options.bam_size <= 0 )  {
+     printf("Size of a bam file (in GB) cannot be negative\n");
+     exit(0);
+  }
+
+  if (verbose_flag) {
+       std::cout << "I1/R1/R2 files" << std::endl;
+       for(int i= 0; i < options.I1s.size(); i++) {
+           std::cout << "\t" << options.I1s[i] << " " << filesize(options.I1s[i].c_str()) \
+                     << " "  << options.R1s[i] << " " << filesize(options.R1s[i].c_str()) \
+                     << " "  << options.R2s[i] << " " << filesize(options.R2s[i].c_str()) \
+                     <<  std::endl;
+       }
+  }
+
+}
+
+long get_num_blocks(const INPUT_OPTIONS &options) {
+
+    double tot_size = 0;
+    for(int i= 0; i < options.R1s.size(); i++) {
+        tot_size +=  filesize(options.I1s[i].c_str());
+        tot_size +=  filesize(options.R1s[i].c_str());
+        tot_size +=  filesize(options.R2s[i].c_str());
+    }
+
+    //printf("ceil %f\n",  tot_size/(1024*1024*1024)/(double)options.bam_size);
+    return ceil( ( tot_size/(1024*1024*1024))/(double)options.bam_size);
+}
+ 

@@ -53,6 +53,7 @@ int process_inputs(const INPUT_OPTIONS &options, const WHITE_LIST_DATA *white_li
    int block_size = 100000;
 
 
+   num_files = get_num_blocks(options);
    // create the data for the threads 
    SAM_RECORD_BINS *samrecord_data = create_samrecord_holders(options.R1s.size(), block_size, num_files);
 
@@ -72,7 +73,7 @@ int process_inputs(const INPUT_OPTIONS &options, const WHITE_LIST_DATA *white_li
    std::thread *writers = new std::thread[num_files];
    for (int i = 0; i < num_files; i++)
    {
-      writers[i] = std::thread(write_to_bam, i, samrecord_data);
+      writers[i] = std::thread(bam_writers, i, samrecord_data);
    }
 
     
@@ -81,6 +82,7 @@ int process_inputs(const INPUT_OPTIONS &options, const WHITE_LIST_DATA *white_li
    for (int i = 0; i < options.R1s.size(); i++) {
       readers[i] = std::thread(process_file, i, \
                      options.I1s[i].c_str(), options.R1s[i].c_str(), options.R2s[i].c_str(), \
+                     options.barcode_length, options.umi_length,
                      white_list_data, samrecord_data);
    }
 
@@ -118,9 +120,8 @@ int process_inputs(const INPUT_OPTIONS &options, const WHITE_LIST_DATA *white_li
   delete [] writers;
 }
 
-void write_to_bam(int windex, SAM_RECORD_BINS *samrecord_data) {
+void bam_writers(int windex, SAM_RECORD_BINS *samrecord_data) {
    std::thread::id  thread_id = std::this_thread::get_id();
-     
 
    SamFile samOut;
    string outputfile;
@@ -163,6 +164,7 @@ void write_to_bam(int windex, SAM_RECORD_BINS *samrecord_data) {
 
 
 void process_file(int tindex, String filename1, String filename2, String filename3, \
+                   unsigned int barcode_length, unsigned int umi_length, \
                    const WHITE_LIST_DATA* white_list_data, SAM_RECORD_BINS *samrecord_data) {
    FastQFile fastQFile1(4, 4);
    FastQFile fastQFile2(4, 4);
@@ -197,7 +199,7 @@ void process_file(int tindex, String filename1, String filename2, String filenam
    int n_barcode_corrected = 0;
    int n_barcode_correct = 0;
    int r =0;
-   printf(" opening the thread in %d\n", tindex);
+   printf("Opening the thread in %d\n", tindex);
    while (fastQFile1.keepReadingFile()) {
       if(fastQFile1.readFastQSequence() == FastQStatus::FASTQ_SUCCESS && 
          fastQFile2.readFastQSequence() == FastQStatus::FASTQ_SUCCESS && 
@@ -208,11 +210,11 @@ void process_file(int tindex, String filename1, String filename2, String filenam
          std::string a = std::string(fastQFile2.myRawSequence.c_str());
          std::string b = std::string(fastQFile2.myQualityString.c_str());
 
-         string barcode = a.substr(0,16);
-         string UMI  = a.substr(16,26);
+         string barcode = a.substr(0, barcode_length);
+         string UMI  = a.substr(barcode_length, barcode_length + umi_length);
 
-         string barcodeQString = b.substr(0,16);
-         string UMIQString  = b.substr(16,26);
+         string barcodeQString = b.substr(0, barcode_length);
+         string UMIQString  = b.substr(barcode_length, barcode_length + umi_length);
 
          samRecord[r].resetRecord();
          samRecord[r].setReadName(fastQFile3.mySequenceIdentifier.c_str());
@@ -243,6 +245,7 @@ void process_file(int tindex, String filename1, String filename2, String filenam
                  n_barcode_corrected += 1;
             }
 
+            // is used for computing the file index
             bucket_barcode=correct_barcode; 
             samRecord[r].addTag("CB", 'Z', correct_barcode.c_str());
          }
@@ -254,7 +257,6 @@ void process_file(int tindex, String filename1, String filename2, String filenam
          samrecord_data->num_records[tindex]++;
          int bucket = std::hash<std::string>{}(bucket_barcode.c_str()) % samrecord_data->num_files;
          samrecord_data->file_index[tindex][bucket].push_back(r);
-
 
          r = r + 1;
          if(r == block_size || !fastQFile1.keepReadingFile()) {
@@ -272,7 +274,6 @@ void process_file(int tindex, String filename1, String filename2, String filenam
                }
 
                // they are done writing 
-               
                for(int j = 0; j < samrecord_data->num_files; j++) {
                      samrecord_data->file_index[tindex][j].clear();
                }
@@ -302,8 +303,8 @@ void process_file(int tindex, String filename1, String filename2, String filenam
    fastQFile1.closeFile();
    fastQFile2.closeFile();
    fastQFile3.closeFile();
-   printf("Total barcodes %d, correct %d corrected %d, uncorrectible %d uncorrected %lf\n", \
-             i, n_barcode_correct, n_barcode_corrected, n_barcode_errors, n_barcode_errors/(double)i *100);
+   printf("Total barcodes:%d\n correct:%d\ncorrected:%d\nuncorrectible:%d\nuncorrected:%lf\n", \
+           i, n_barcode_correct, n_barcode_corrected, n_barcode_errors, n_barcode_errors/(double)i *100);
 
 }
 
