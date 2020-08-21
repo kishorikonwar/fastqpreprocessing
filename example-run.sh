@@ -2,7 +2,7 @@
 rm -rf *.bam
 
 src/fastqprocess --verbose \
- --bam-size 0.01 \
+ --bam-size 0.0001 \
  --white-list ../L8TX/737K-august-2016.txt \
  --I1 ../L8TX/A_I1.fastq.gz \
  --I1 ../L8TX/B_I1.fastq.gz \
