@@ -1,0 +1,6 @@
+
+We modified certain portion of the code
+therefore, it is no longer a  submodule but rather a part of the
+current code base
+[submodule "libStatGen"]
+	url = git://github.com/statgen/libStatGen.git

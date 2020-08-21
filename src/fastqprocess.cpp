@@ -8,106 +8,6 @@ sem_t *semaphores_workers = 0;
 using namespace std;
 
 
-void process_file(int tindex, String filename, String filename1, String filename2, \
-                      const WHITE_LIST_DATA *, SAM_RECORD_BINS *) ;
-
-int process_inputs(const STRING_VECTOR &, const STRING_VECTOR &, const STRING_VECTOR &, \
-                   const WHITE_LIST_DATA *) ;
-void write_to_bam(int , SAM_RECORD_BINS *) ;
-
-
-/* Flag set by ‘--verbose’. */
-static int verbose_flag;
-
-int main (int argc, char **argv)
-{
-  int c;
-  int i;
-  vector<string> I1s, R1s, R2s;
-  string white_list_file;
-
-  while (1)
-    {
-      static struct option long_options[] =
-        {
-          /* These options set a flag. */
-          {"verbose", no_argument,  &verbose_flag, 1},
-          /* These options don’t set a flag.
-             We distinguish them by their indices. */
-          {"I1",  required_argument,  0, 'I'},
-          {"R1",  required_argument,  0, 'R'},
-          {"R2",    required_argument, 0, 'r'},
-          {"white-list",    required_argument, 0, 'w'},
-          {0, 0, 0, 0}
-        };
-      /* getopt_long stores the option index here. */
-      int option_index = 0;
-
-      c = getopt_long (argc, argv, "I:R:r:", long_options, &option_index);
-
-      /* Detect the end of the options. */
-      if (c == -1)
-        break;
-
-      switch (c)
-        {
-        case 0:
-          /* If this option set a flag, do nothing else now. */
-          if (long_options[option_index].flag != 0)
-            break;
-          printf ("option %s", long_options[option_index].name);
-          if (optarg)
-            printf (" with arg %s", optarg);
-          printf ("\n");
-          break;
-        case 'I':
-          I1s.push_back(string(optarg)); 
-          break;
-        case 'R':
-          R1s.push_back(string(optarg)); 
-          break;
-        case 'w':
-          white_list_file = string(optarg); 
-          break;
-        case 'r':
-          R2s.push_back(string(optarg)); 
-          break;
-
-        case '?':
-        case 'h':
-          i = 0;
-          printf("Usage %s  [options] \n", argv[0]);
-          while(long_options[i].name != 0) {
-             printf("\t--%s       %s\n", long_options[i].name, \
-                 long_options[i].has_arg==no_argument? "no argument" : "required_argument" );
-             i = i + 1;
-          }
-          /* getopt_long already printed an error message. */
-          return 0;
-          break;
-        default:
-          abort ();
-        }
-    }
-
-  if( R1s.size() != R2s.size() || R1s.size() ==0  )  {
-     printf("R1 and R2 files mismatch i input\n");
-     exit(0);
-  }
-
-
-  if (verbose_flag) {
-       std::cout << "I1/R1/R2 files" << std::endl;
-       for(int i= 0; i < I1s.size(); i++) {
-           std::cout << "\t" << I1s[i] << " " << filesize(I1s[i].c_str()) << " " << R1s[i] << " " << R2s[i] <<  std::endl;
-       }
-  }
-
-  WHITE_LIST_DATA *white_list_data = read_write_list(white_list_file);
-
-  process_inputs(I1s, R1s, R2s, white_list_data);
-}
-
 SAM_RECORD_BINS * create_samrecord_holders(short int nthreads, int block_size, \
                                            short int num_files) {
 
@@ -147,15 +47,14 @@ SAM_RECORD_BINS * create_samrecord_holders(short int nthreads, int block_size, \
    return samrecord_data;
 }
 
-int process_inputs(const STRING_VECTOR &I1s, const STRING_VECTOR &R1s, \
-                   const  STRING_VECTOR &R2s, const WHITE_LIST_DATA *white_list_data) {
+int process_inputs(const INPUT_OPTIONS &options, const WHITE_LIST_DATA *white_list_data) {
 
    int num_files = 200;
    int block_size = 100000;
 
 
    // create the data for the threads 
-   SAM_RECORD_BINS *samrecord_data = create_samrecord_holders(R1s.size(), block_size, num_files);
+   SAM_RECORD_BINS *samrecord_data = create_samrecord_holders(options.R1s.size(), block_size, num_files);
 
      
    semaphores_workers = new sem_t[num_files];
@@ -178,14 +77,15 @@ int process_inputs(const STRING_VECTOR &I1s, const STRING_VECTOR &R1s, \
 
     
    // execute the fastq readers threads
-   std::thread  *readers = new std::thread[R1s.size()];
-   for (int i = 0; i < R1s.size(); i++) {
-      readers[i] = std::thread(process_file, i, I1s[i].c_str(), R1s[i].c_str(), R2s[i].c_str(), \
+   std::thread  *readers = new std::thread[options.R1s.size()];
+   for (int i = 0; i < options.R1s.size(); i++) {
+      readers[i] = std::thread(process_file, i, \
+                     options.I1s[i].c_str(), options.R1s[i].c_str(), options.R2s[i].c_str(), \
                      white_list_data, samrecord_data);
    }
 
    // everyone comes home.
-   for (int i = 0; i < R1s.size(); i++) {
+   for (int i = 0; i < options.R1s.size(); i++) {
       readers[i].join();
    }
 
@@ -226,7 +126,7 @@ void write_to_bam(int windex, SAM_RECORD_BINS *samrecord_data) {
    string outputfile;
 
    char buf[200];
-   sprintf(buf, "checking-%ld.bam", thread_id);
+   sprintf(buf, "subfile_%d.bam", windex);
    outputfile = buf;
    
    samOut.OpenForWrite(outputfile.c_str());

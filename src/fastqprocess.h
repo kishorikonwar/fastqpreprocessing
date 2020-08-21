@@ -1,6 +1,7 @@
 #ifndef __FASTQ_PROCESS_H__
 #define __FASTQ_PROCESS_H__
-#include "FastQFile.h"
+
+#include <FastQFile.h>
 #include "FastQStatus.h"
 #include "BaseAsciiMap.h"
 #include "SamFile.h"
@@ -46,5 +47,19 @@ typedef struct SamRecordBins {
     short int num_threads;
     int active_thread_no;
 } SAM_RECORD_BINS;
+
+typedef struct _input_options {
+  vector<string> I1s, R1s, R2s;
+  string white_list_file;
+
+} INPUT_OPTIONS;
+
+void process_file(int tindex, String filename, String filename1, String filename2, \
+                      const WHITE_LIST_DATA *, SAM_RECORD_BINS *) ;
+
+int process_inputs(const INPUT_OPTIONS &,  const WHITE_LIST_DATA *) ;
+void write_to_bam(int , SAM_RECORD_BINS *) ;
+
+
 
 #endif

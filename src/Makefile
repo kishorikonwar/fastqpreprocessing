@@ -1,24 +1,25 @@
 IDIR =../libStatGen/include
 
-CC=g++ -std=c++0x -O4
-CFLAGS=-I$(IDIR)   -L../libStatGen
+CC = g++ -std=c++17 -O4
+CFLAGS = -I$(IDIR) -L../libStatGen
 
 ODIR=obj
 LDIR =../libStatGen/
 
-LIBS=-lStatGen -lz -lpthread
+TARGET = fastqprocess
+LIBS = -lStatGen -lz -lpthread
 
-#_DEPS = hellomake.h
+_DEPS = fastqprocess.h utilities.h
 #DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS))
 
-_OBJ = main.o 
+_OBJ = fastqprocess.o  utilities.o main.o
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 
 
 $(ODIR)/%.o: %.cpp $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-fastqproc: $(OBJ)
+$(TARGET): $(OBJ)  $(_DEPS)
 	$(CC) -o $@ $^ $(CFLAGS)  $(LIBS) 
 
 .PHONY: clean
