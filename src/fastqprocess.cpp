@@ -157,7 +157,7 @@ void write_to_bam(int windex, SAM_RECORD_BINS *samrecord_data) {
      if(samrecord_data->stop) break;  
    }
 
-   printf("closing %d\n", windex);
+   //printf("closing %d\n", windex);
    samOut.Close();
 }
 
@@ -194,15 +194,15 @@ void process_file(int tindex, String filename1, String filename2, String filenam
    // Keep reading the file until there are no more fastq sequences to process.
    int i = 0;
    int n_barcode_errors = 0;
+   int n_barcode_corrected = 0;
+   int n_barcode_correct = 0;
    int r =0;
    printf(" opening the thread in %d\n", tindex);
-   while (fastQFile1.keepReadingFile())
-   {
+   while (fastQFile1.keepReadingFile()) {
       if(fastQFile1.readFastQSequence() == FastQStatus::FASTQ_SUCCESS && 
          fastQFile2.readFastQSequence() == FastQStatus::FASTQ_SUCCESS && 
          fastQFile3.readFastQSequence() == FastQStatus::FASTQ_SUCCESS 
-      )
-      {
+        ) {
          i = i + 1;
          //check the sequence names matching
          std::string a = std::string(fastQFile2.myRawSequence.c_str());
@@ -214,31 +214,50 @@ void process_file(int tindex, String filename1, String filename2, String filenam
          string barcodeQString = b.substr(0,16);
          string UMIQString  = b.substr(16,26);
 
-         if( white_list_data->mutations.find(barcode) != white_list_data->mutations.end()) {
-            //printf("record %d\n", r);
-            samRecord[r].resetRecord();
-            samRecord[r].setReadName(fastQFile3.mySequenceIdentifier.c_str());
-            samRecord[r].setSequence(fastQFile3.myRawSequence.c_str());
-            samRecord[r].setQuality(fastQFile3.myQualityString.c_str());
+         samRecord[r].resetRecord();
+         samRecord[r].setReadName(fastQFile3.mySequenceIdentifier.c_str());
+         samRecord[r].setSequence(fastQFile3.myRawSequence.c_str());
+         samRecord[r].setQuality(fastQFile3.myQualityString.c_str());
 
-            samRecord[r].addTag("CR", 'Z', barcode.c_str());
-            samRecord[r].addTag("CY", 'Z', barcodeQString.c_str());
+         samRecord[r].addTag("CR", 'Z', barcode.c_str());
+         samRecord[r].addTag("CY", 'Z', barcodeQString.c_str());
 
-            samRecord[r].addTag("UB", 'Z', UMI.c_str());
-            samRecord[r].addTag("UY", 'Z', UMIQString.c_str());
+         samRecord[r].addTag("UB", 'Z', UMI.c_str());
+         samRecord[r].addTag("UY", 'Z', UMIQString.c_str());
 
-            std::string indexseq = std::string(fastQFile1.myRawSequence.c_str());
-            std::string indexSeqQual = std::string(fastQFile1.myQualityString.c_str());
-            samRecord[r].addTag("SR", 'Z', indexseq.c_str());
-            samRecord[r].addTag("SY", 'Z', indexSeqQual.c_str());
-            samRecord[r].setFlag(4);
+         std::string indexseq = std::string(fastQFile1.myRawSequence.c_str());
+         std::string indexSeqQual = std::string(fastQFile1.myQualityString.c_str());
+         samRecord[r].addTag("SR", 'Z', indexseq.c_str());
+         samRecord[r].addTag("SY", 'Z', indexSeqQual.c_str());
+         samRecord[r].setFlag(4);
             
-            samrecord_data->num_records[tindex]++;
-            int bucket = std::hash<std::string>{}(barcode.c_str()) % samrecord_data->num_files;
-            samrecord_data->file_index[tindex][bucket].push_back(r);
+         string correct_barcode;
+         string bucket_barcode;
+         if(white_list_data->mutations.find(barcode) != white_list_data->mutations.end()) {
+            if( white_list_data->mutations.at(barcode) == -1 ) {
+                 correct_barcode = barcode;
+                 n_barcode_correct += 1;
+            }
+            else {
+                 correct_barcode = white_list_data->barcodes.at(white_list_data->mutations.at(barcode));
+                 n_barcode_corrected += 1;
+            }
 
-            r = r + 1;
-            if(r == block_size || !fastQFile1.keepReadingFile()) {
+            bucket_barcode=correct_barcode; 
+            samRecord[r].addTag("CB", 'Z', correct_barcode.c_str());
+         }
+         else {
+            n_barcode_errors += 1;
+            bucket_barcode=barcode; 
+         }
+ 
+         samrecord_data->num_records[tindex]++;
+         int bucket = std::hash<std::string>{}(bucket_barcode.c_str()) % samrecord_data->num_files;
+         samrecord_data->file_index[tindex][bucket].push_back(r);
+
+
+         r = r + 1;
+         if(r == block_size || !fastQFile1.keepReadingFile()) {
                mtx.lock();
                samrecord_data->active_thread_no = tindex;
 
@@ -260,11 +279,6 @@ void process_file(int tindex, String filename1, String filename2, String filenam
                r = 0;
                samrecord_data->num_records[tindex] = 0;
                mtx.unlock();
-            }
-           }
-         }
-         else {
-             n_barcode_errors += 1;
          }
 
          if(i % 1000000 == 0) {  
@@ -281,13 +295,15 @@ void process_file(int tindex, String filename1, String filename2, String filenam
              }
             break;
          }
+      } // if successful read of a sequence 
    }
    // Finished processing all of the sequences in the file.
    // Close the input file.
    fastQFile1.closeFile();
    fastQFile2.closeFile();
    fastQFile3.closeFile();
-   printf("Total reads %d, errors %d %f\n", i, n_barcode_errors, n_barcode_errors/(double)i *100);
+   printf("Total barcodes %d, correct %d corrected %d, uncorrectible %d uncorrected %lf\n", \
+             i, n_barcode_correct, n_barcode_corrected, n_barcode_errors, n_barcode_errors/(double)i *100);
 
 }
 

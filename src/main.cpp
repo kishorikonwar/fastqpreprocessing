@@ -92,7 +92,7 @@ int main (int argc, char **argv)
        }
   }
 
-  WHITE_LIST_DATA *white_list_data = read_write_list(options.white_list_file);
+  WHITE_LIST_DATA *white_list_data = read_white_list(options.white_list_file);
 
   process_inputs(options, white_list_data);
 }

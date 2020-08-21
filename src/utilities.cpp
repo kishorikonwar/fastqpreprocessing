@@ -29,7 +29,7 @@ long getFileSize(const std::string &fileName)
     return fileSize;
 }
 
-WHITE_LIST_DATA *read_write_list(const string &white_list_file) {
+WHITE_LIST_DATA *read_white_list(const string &white_list_file) {
    // be careful of caps 
    char ATCG[] = {'A', 'T', 'C', 'G'};
 
@@ -40,19 +40,24 @@ WHITE_LIST_DATA *read_write_list(const string &white_list_file) {
    int k = 0;
    if (newfile.is_open()){   //checking whether the file is open
       string tp;
-      white_list_data->barcodes.push_back(tp);
       while(getline(newfile, tp)){ //read data from file object and put it into string.
        //  cout << tp << "\n"; //print the data of the string
+         white_list_data->barcodes.push_back(tp);
+
          for(int i=0; i < tp.size(); i++) {
              for(int j=0; j < 4; j++) {
                  char c = tp[i];
                  tp[i] = ATCG[j];
-                 white_list_data->mutations.insert( {tp, true} );
+                 white_list_data->mutations.insert( {tp, k} );
                  tp[i] = c;
              }
          }
+         //printf("%s\n", tp.c_str());
+         white_list_data->mutations.at(tp) = -1;
+
          if( k%100000 == 0 && k != 0 ) printf("%d\n", k);
          k++;
+
       }
       newfile.close(); //close the file object.
    }
