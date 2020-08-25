@@ -290,12 +290,15 @@ void process_file(int tindex, String filename1, String filename2, String filenam
              printf("%s\n", fastQFile3.mySequenceIdLine.c_str());
 
          }
+
+        /*
          if( i== 5000000 ) {  
              for(int j = 0; j < samrecord_data->num_files; j++) {
                  sem_destroy(&semaphores[j]);
              }
             break;
          }
+         */
       } // if successful read of a sequence 
    }
    // Finished processing all of the sequences in the file.
