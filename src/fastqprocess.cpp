@@ -137,9 +137,11 @@ void bam_writers(int windex, SAM_RECORD_BINS *samrecord_data) {
    samHeader.setHDTag("VN", "1.6");
    samHeader.setHDTag("SO", "unsorted");
 
-   //samHeader.setRGTag("ID", "A");
-  // samHeader.setRGTag("SM", "unknown");
-
+   SamHeaderRG *headerRG = new SamHeaderRG;
+   headerRG->setTag("ID", "A");
+   headerRG->setTag("SM", "sample");
+   samHeader.addRG(headerRG);
+   
    samOut.WriteHeader(samHeader);
 
 
