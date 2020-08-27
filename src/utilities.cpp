@@ -31,7 +31,7 @@ long getFileSize(const std::string &fileName)
 
 WHITE_LIST_DATA *read_white_list(const string &white_list_file) {
    // be careful of caps 
-   char ATCG[] = {'A', 'T', 'C', 'G'};
+   char ATCG[] = {'A', 'T', 'C', 'G', 'N'};
 
    fstream newfile;
    WHITE_LIST_DATA *white_list_data = new  WHITE_LIST_DATA;
@@ -45,7 +45,7 @@ WHITE_LIST_DATA *read_white_list(const string &white_list_file) {
          white_list_data->barcodes.push_back(tp);
 
          for(int i=0; i < tp.size(); i++) {
-             for(int j=0; j < 4; j++) {
+             for(int j=0; j < 5; j++) {
                  char c = tp[i];
                  tp[i] = ATCG[j];
                  white_list_data->mutations.insert( {tp, k} );

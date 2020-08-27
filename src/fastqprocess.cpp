@@ -224,13 +224,16 @@ void process_file(int tindex, String filename1, String filename2, String filenam
          samRecord[r].addTag("CR", 'Z', barcode.c_str());
          samRecord[r].addTag("CY", 'Z', barcodeQString.c_str());
 
-         samRecord[r].addTag("UB", 'Z', UMI.c_str());
+         samRecord[r].addTag("UR", 'Z', UMI.c_str());
          samRecord[r].addTag("UY", 'Z', UMIQString.c_str());
 
          std::string indexseq = std::string(fastQFile1.myRawSequence.c_str());
          std::string indexSeqQual = std::string(fastQFile1.myQualityString.c_str());
          samRecord[r].addTag("SR", 'Z', indexseq.c_str());
          samRecord[r].addTag("SY", 'Z', indexSeqQual.c_str());
+
+         samRecord[r].addTag("RG", 'Z', "A");
+
          samRecord[r].setFlag(4);
             
          string correct_barcode;
