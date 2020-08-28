@@ -40,6 +40,7 @@ typedef struct SamRecordBins {
     
     vector<int> **file_index;
 
+    string sample_id;
     int block_size;
     short int num_files;
 

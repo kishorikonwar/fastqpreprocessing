@@ -9,7 +9,7 @@ using namespace std;
 
 
 SAM_RECORD_BINS * create_samrecord_holders(short int nthreads, int block_size, \
-                                           short int num_files) {
+                                           const string sample_id,  short int num_files) {
 
    SAM_RECORD_BINS *samrecord_data = new SAM_RECORD_BINS;
 
@@ -41,6 +41,7 @@ SAM_RECORD_BINS * create_samrecord_holders(short int nthreads, int block_size, \
    }
 
    samrecord_data->block_size = block_size;
+   samrecord_data->sample_id = sample_id;
    samrecord_data->num_files = num_files;
    samrecord_data->stop = false;
 
@@ -55,7 +56,8 @@ int process_inputs(const INPUT_OPTIONS &options, const WHITE_LIST_DATA *white_li
 
    num_files = get_num_blocks(options);
    // create the data for the threads 
-   SAM_RECORD_BINS *samrecord_data = create_samrecord_holders(options.R1s.size(), block_size, num_files);
+   SAM_RECORD_BINS *samrecord_data = create_samrecord_holders(options.R1s.size(), block_size, \
+                                                              options.sample_id, num_files);
 
      
    semaphores_workers = new sem_t[num_files];
@@ -139,7 +141,7 @@ void bam_writers(int windex, SAM_RECORD_BINS *samrecord_data) {
 
    SamHeaderRG *headerRG = new SamHeaderRG;
    headerRG->setTag("ID", "A");
-   headerRG->setTag("SM", "sample");
+   headerRG->setTag("SM", samrecord_data->sample_id.c_str());
    samHeader.addRG(headerRG);
    
    samOut.WriteHeader(samHeader);
@@ -213,10 +215,10 @@ void process_file(int tindex, String filename1, String filename2, String filenam
          std::string b = std::string(fastQFile2.myQualityString.c_str());
 
          string barcode = a.substr(0, barcode_length);
-         string UMI  = a.substr(barcode_length, barcode_length + umi_length);
+         string UMI  = a.substr(barcode_length, umi_length);
 
          string barcodeQString = b.substr(0, barcode_length);
-         string UMIQString  = b.substr(barcode_length, barcode_length + umi_length);
+         string UMIQString  = b.substr(barcode_length, umi_length);
 
          samRecord[r].resetRecord();
          samRecord[r].setReadName(fastQFile3.mySequenceIdentifier.c_str());

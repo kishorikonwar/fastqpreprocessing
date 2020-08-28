@@ -75,9 +75,7 @@ void read_options(int argc, char **argv, INPUT_OPTIONS &options) {
   int i;
 
   int verbose_flag;
-  options.barcode_length = 16;
-  options.umi_length = 10;
-  options.bam_size = 1.0;
+
   while (true) {
       static struct option long_options[] =
         {
@@ -88,6 +86,7 @@ void read_options(int argc, char **argv, INPUT_OPTIONS &options) {
           {"barcode-length",    required_argument, 0, 'b'},
           {"umi-length",    required_argument, 0, 'u'},
           {"bam-size",    required_argument, 0, 'B'},
+          {"sample-id",    required_argument, 0, 's'},
           {"I1",  required_argument,  0, 'I'},
           {"R1",  required_argument,  0, 'R'},
           {"R2",    required_argument, 0, 'r'},
@@ -96,21 +95,22 @@ void read_options(int argc, char **argv, INPUT_OPTIONS &options) {
         };
 
       const char *help_messages[] = {
-           "verbose messages", 
-           "barcode length", 
-           "UMI length",
-           "output BAM file in GB", 
+           "verbose messages  ", 
+           "barcode length [required]", 
+           "UMI length [required]",
+           "output BAM file in GB [optional: default 1 GB]", 
+           "sample id [required]", 
            "I1", 
-           "R1",
-           "R2", 
-           "white of correct barcodes", 
+           "R1 [required]",
+           "R2 [required]", 
+           "white list (from cellranger) of correct barcodes [required]", 
       };
 
 
       /* getopt_long stores the option index here. */
       int option_index = 0;
 
-      c = getopt_long (argc, argv, "b:u:B:I:R:r:w:", long_options, &option_index);
+      c = getopt_long (argc, argv, "b:u:B:s:I:R:r:w:", long_options, &option_index);
 
       /* Detect the end of the options. */
       if (c == -1)
@@ -135,6 +135,9 @@ void read_options(int argc, char **argv, INPUT_OPTIONS &options) {
             break;
         case 'B':
             options.bam_size = atof(optarg); 
+            break;
+        case 's':
+            options.sample_id = string(optarg); 
             break;
         case 'I':
             options.I1s.push_back(string(optarg)); 
@@ -175,6 +178,21 @@ void read_options(int argc, char **argv, INPUT_OPTIONS &options) {
 
   if( options.bam_size <= 0 )  {
      printf("Size of a bam file (in GB) cannot be negative\n");
+     exit(0);
+  }
+
+  if( options.sample_id.size() == 0 )  {
+     printf("Must provide a sample id or sampe name\n");
+     exit(0);
+  }
+
+  if( options.barcode_length <= 0 )  {
+     printf("Barcode length must be a positive integer\n");
+     exit(0);
+  }
+
+  if( options.umi_length <= 0 )  {
+     printf("UMI length must be a positive integer\n");
      exit(0);
   }
 

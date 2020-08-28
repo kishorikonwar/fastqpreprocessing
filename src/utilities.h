@@ -5,10 +5,18 @@
 
 
 typedef struct _input_options {
+  _input_options() {
+     barcode_length = -1;
+     umi_length = -1;
+     sample_id = "";
+     bam_size = 1.0;
+  }
+
   vector<string> I1s, R1s, R2s;
   string white_list_file;
-  unsigned int barcode_length, umi_length; 
+  int barcode_length, umi_length; 
   double bam_size;
+  string sample_id;
 } INPUT_OPTIONS;
 
 
