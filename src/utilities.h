@@ -29,7 +29,6 @@ void read_options(int, char **, INPUT_OPTIONS &);
 long filesize(const char *filename);
 long getFileSize(const std::string &fileName);
 
-
-
+void error (char *msg);
 
 #endif
